@@ -30,9 +30,11 @@ Five jobs: Read my orders, Read the printer, Plan a print, After a print, and Up
 
 Reading the printer itself on the network is parked: the printer doesn't answer in its normal mode. Until that's settled, use Bambu Studio's saved AMS list (FM-R28).
 
+**Orders first.** The list places spools that are already in the record. On a new record, read the person's orders and have them review those in Filament Ctrl before you read the printer; otherwise there's nothing to place. If proposals from orders are still waiting, say so and stop.
+
 1. **Ask first.** Tell the person this reads one entry, the AMS list, from Bambu Studio's settings file, which also holds printer access codes that are never read. Go ahead only on their yes.
 2. **Find the printer.** `node studio-ams.mjs` lists the printers Studio has a list for, by serial. Ask which, if there's more than one.
-3. **Read it.** `node studio-ams.mjs --serial <serial> --units <AMS units> --catalog <clone>/catalog.json --record <clone>/filament-ctrl.json --data <clone>`. It writes a snapshot and a proposal. The list is as current as the person's last "Sync filaments with AMS" in Studio, and gives each slot's line, not its colour or what's left.
+3. **Read it.** `node studio-ams.mjs --serial <serial> --units <AMS units> --catalog <clone>/catalog.json --record <clone>/filament-ctrl.json --data <clone>`. It writes a snapshot and a proposal. The list is as current as the person's last "Sync filaments with AMS" in Studio, and gives each slot's line, not its colour or what's left. So a slot goes to the one open spool of that line (Likely); with none open, to a sealed one only when every sealed spool of the line is the same colour (Guess, left unticked); otherwise the person places it.
 4. **Commit once**, such as "AMS from Bambu Studio", and push.
 5. **Report** each slot's line, the moves proposed, and the slots to settle by hand, and say how old the list is.
 

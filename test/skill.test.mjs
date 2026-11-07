@@ -6,7 +6,7 @@ import { proposalFor, matchLine } from '../skill/order.mjs';
 import { amsEntry, slotsFrom, proposalFromStudio } from '../skill/studio-ams.mjs';
 import { unzipOne, needsFromSliceInfo, needsFromGcode, planJob, planText, usedProposal } from '../skill/plan.mjs';
 import { orderKnown as skillKnown } from '../skill/common.mjs';
-import { emptyRecord, addSpools, moveSpool, markOpened, setLeft, applyProposal, getSpool, orderKnown as appKnown } from '../site/core.js';
+import { emptyRecord, addSpools, moveSpool, markOpened, setLeft, applyProposal, defaultTicks, getSpool, orderKnown as appKnown } from '../site/core.js';
 
 const DAY = '2026-11-06';
 const CAT = { lines: [
@@ -163,4 +163,18 @@ test('FM-R34 after the print, the grams come off the loaded spools that the AMS 
   const p = usedProposal(planJob(NEED, rec, CAT, DAY), 'bracket.3mf', DAY);
   assert.deepEqual(p.changes.map((c) => [c.type, c.spool, c.grams]), [['spoolUsed', 'FM-001', 180]]);
   assert.equal(getSpool(applyProposal(rec, p, undefined, DAY).rec, 'FM-001').left.grams, 220);
+});
+
+test('FM-R28, FM-A08 F1 with no open spool, a sealed one of a single colour is offered as a Guess; mixed colours are left to the person', () => {
+  const black = { brand: 'Bambu Lab', line: 'PLA Basic', lineId: 'GFA00', material: 'PLA', colour: 'Black', values: ['#000000'], code: 'K0' };
+  const blue = { brand: 'Bambu Lab', line: 'PETG HF', lineId: 'GFG02', material: 'PETG', colour: 'Lake Blue', values: ['#1F79E5'], code: 'B1' };
+  const white = { ...blue, colour: 'White', values: ['#FFFFFF'], code: 'W0' };
+  let rec = addSpools(emptyRecord(), { filament: black, count: 2, date: DAY }).rec; // FM-001, FM-002 sealed black
+  rec = addSpools(rec, { filament: blue, count: 1, date: DAY }).rec; // FM-003 sealed blue
+  rec = addSpools(rec, { filament: white, count: 1, date: DAY }).rec; // FM-004 sealed white
+  const p = proposalFromStudio(slotsFrom('GFA00,GFG02,GFA00,GFU02', 1), CAT, rec, DAY, DAY);
+  assert.deepEqual(p.changes.map((c) => [c.spool, c.to.slot, c.sure]), [['FM-001', 1, 'Guess'], ['FM-002', 3, 'Guess']]);
+  assert.match(p.skipped.find((x) => /slot 2/i.test(x.textRead)).why, /Lake Blue, White/);
+  assert.match(p.skipped.find((x) => /slot 4/i.test(x.textRead)).why, /No .* on record/);
+  assert.deepEqual(defaultTicks(p), [false, false], 'FM-U10 Guesses are left unticked');
 });

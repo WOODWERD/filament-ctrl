@@ -2,6 +2,14 @@
 
 What changed in each version of Filament Ctrl, newest first. Versions are x-numbers while Filament Ctrl is a public beta.
 
+## x0.0.2 — 2026-11-06
+
+From the first real-use check on Drew's shelf.
+
+- **Reading the printer places more spools.** When no spool of a line is open, Bambu Studio's AMS list now offers a sealed one, as a Guess for you to tick, if all your sealed spools of that line are the same colour. If they're different colours, it says which and leaves the slot to you.
+- **Orders before the printer.** The skill now reads the printer only after your orders are reviewed, since there's nothing to place until then. It stops and says so.
+- **No more blank page on opening.** The app shows Reading your repo, or your shelf as last seen, while it reads. Changes wait until the read is done.
+
 ## x0.0.1 — 2026-11-06
 
 The first build, kept on this computer. Not yet published.

@@ -25,7 +25,8 @@ async function start() {
   const cached = db.getMeta('cache');
   if (cached) Object.assign(S, { rec: cached.rec, catalog: cached.catalog, proposals: cached.proposals || [] });
   if (new URLSearchParams(location.search).has('standin') && standinAllowed()) S.conn = { repo: 'standin', standin: true };
-  if (S.conn) { S.gh = S.conn.standin ? standin() : client(S.conn.repo, S.conn.token); await refresh(); }
+  // F3: draw at once (Reading your repo, or the shelf as last seen) rather than a blank page while the repo is read.
+  if (S.conn) { S.gh = S.conn.standin ? standin() : client(S.conn.repo, S.conn.token); render(); await refresh(); }
   if (S.rec && S.view === 'shelf' && S.rec.spools.some((s) => s.place.kind === 'AMS')) S.view = 'printer'; // FM-U03
   render();
   wide.addEventListener('change', render);
@@ -42,6 +43,8 @@ async function refresh() {
 
 // One change, one commit (FM-A10). Undo writes the record before it back, in one more commit.
 async function commit(next, message, extra = [], undoable = true) {
+  // Until the repo has been read once, the page can't know whether its copy is the latest (F5), so it doesn't save.
+  if (!S.loaded) { S.problem = { kind: 'reading', text: 'Still reading your repo, so nothing was saved. Try again in a moment.' }; render(); return false; }
   const before = S.rec;
   S.saving = true; S.rec = next; render();
   const r = await S.gh.save([{ path: 'filament-ctrl.json', json: next }, ...extra], message);
@@ -92,8 +95,10 @@ function leds() { // FM-U02: Repo, Printer, Waiting
   const out = [];
   if (!S.conn) out.push(['', 'Not connected']);
   else if (S.problem?.kind === 'stale') out.push(['on-busy', 'Read again']);
+  else if (S.problem?.kind === 'reading') out.push(['on-busy blink', 'Reading']);
   else if (S.problem) out.push(['on-fault', 'Repo problem']);
   else if (S.saving) out.push(['on-busy blink', 'Saving']);
+  else if (!S.loaded) out.push(['on-busy blink', 'Reading']);
   else out.push(['on-ok', S.conn.standin ? 'Stand-in repo' : 'Repo']);
   if (S.rec) { const [t, c] = printerState(); out.push([c === 'ok' ? 'on-ok' : c === 'warn' ? 'on-busy' : '', t]); }
   const w = waiting().length;
@@ -153,8 +158,8 @@ function connectView() {
 }
 function problemView() {
   const p = S.problem;
-  return tier(0, 'Data repo', `<span class="mono">${esc(S.conn.repo)}</span>`, p.kind === 'offline' ? 'Offline' : p.kind === 'public' ? 'Repo is public' : p.kind === 'stale' ? 'Read again' : 'Repo problem', ['offline', 'stale'].includes(p.kind) ? 'warn' : 'bad', `
-    <div class="health ${['offline', 'stale'].includes(p.kind) ? 'warn' : 'bad'}"><b>${p.kind === 'public' ? 'Nothing was saved. This repo is public' : p.kind === 'offline' ? 'Not connected to GitHub' : p.kind === 'stale' ? 'Changed somewhere else' : 'Nothing was saved'}</b><span>${esc(p.text)}</span></div>
+  return tier(0, 'Data repo', `<span class="mono">${esc(S.conn.repo)}</span>`, p.kind === 'offline' ? 'Offline' : p.kind === 'public' ? 'Repo is public' : p.kind === 'stale' ? 'Read again' : p.kind === 'reading' ? 'Reading' : 'Repo problem', ['offline', 'stale', 'reading'].includes(p.kind) ? 'warn' : 'bad', `
+    <div class="health ${['offline', 'stale', 'reading'].includes(p.kind) ? 'warn' : 'bad'}"><b>${p.kind === 'public' ? 'Nothing was saved. This repo is public' : p.kind === 'offline' ? 'Not connected to GitHub' : p.kind === 'stale' ? 'Changed somewhere else' : p.kind === 'reading' ? 'Not ready yet' : 'Nothing was saved'}</b><span>${esc(p.text)}</span></div>
     <div class="row"><button type="button" class="key go" data-act="recheck">Check again</button>${p.kind === 'auth' || p.kind === 'missing' ? '<button type="button" class="key" data-act="reconnect">Connect again</button>' : ''}</div>`);
 }
 

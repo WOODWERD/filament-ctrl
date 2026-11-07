@@ -7,7 +7,7 @@
 //   node studio-ams.mjs                                       lists the printers it has a list for, by serial
 //   node studio-ams.mjs --serial <serial> --units 1 --catalog <data>/catalog.json --record <data>/filament-ctrl.json --data <data>
 
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { readJson, writeJson, isoToday, getFilament, live, samePlace, placeText, args } from './common.mjs';
@@ -49,7 +49,9 @@ export function slotsFrom(list, units = 1) {
   }).filter((s) => s.place.kind === 'AMS' || s.lineId);
 }
 
-// FM-R28, FM-E06: a slot is matched to the one Open spool of that line; with none or several, the review asks.
+// FM-R28, FM-E06: a slot is matched to the one Open spool of that line; with several, the review asks.
+// With no open spool, a sealed one is offered as a Guess, but only when every sealed spool of the line is the
+// same colour, since Studio's list doesn't say which colour is loaded (FM-A08, F1). Guesses are left unticked.
 // A spool already there of the same line stays. Nothing changes until the person accepts it.
 export function proposalFromStudio(slots, catalog, record, at, read = isoToday()) {
   const lineOf = (id) => catalog?.lines.find((l) => l.id === id) || null;
@@ -66,8 +68,17 @@ export function proposalFromStudio(slots, catalog, record, at, read = isoToday()
     if (open.length === 1) {
       taken.add(open[0].id);
       changes.push({ type: 'spoolMoved', spool: open[0].id, to: s.place, sure: 'Likely', textRead: `${placeText(s.place)}: ${name}` });
+    } else if (open.length) {
+      skipped.push({ textRead: `${placeText(s.place)}: ${name}`, why: `${open.length} open spools of ${name}; move the right one by hand` });
     } else {
-      skipped.push({ textRead: `${placeText(s.place)}: ${name}`, why: open.length ? `${open.length} open spools of ${name}; move the right one by hand` : `No open spool of ${name}; open one or add it, then move it here` });
+      const sealed = record.spools.filter((x) => x.place.kind === 'Sealed' && !taken.has(x.id) && getFilament(record, x.filament)?.lineId === s.lineId);
+      const colours = [...new Set(sealed.map((x) => getFilament(record, x.filament)?.colour || 'no colour'))];
+      if (colours.length === 1) {
+        taken.add(sealed[0].id);
+        changes.push({ type: 'spoolMoved', spool: sealed[0].id, to: s.place, sure: 'Guess', textRead: `${placeText(s.place)}: ${name}, and your only ${name} is ${colours[0]}` });
+      } else {
+        skipped.push({ textRead: `${placeText(s.place)}: ${name}`, why: colours.length ? `No open spool of ${name}, and sealed ones come in ${colours.join(', ')}; move the loaded one here by hand` : `No ${name} on record; add it, then move it here` });
+      }
     }
   }
   return { format: 1, id: `studio-${read}`, source: { kind: 'Bambu Studio', date: at }, read, status: 'Waiting', changes, skipped };
@@ -90,7 +101,15 @@ async function main() {
   const named = (id) => catalog?.lines.find((l) => l.id === id)?.name || id || 'Empty';
   console.log(`From Bambu Studio, as of your last AMS sync (Studio's settings last saved ${at}):\n${slots.map((s) => `  ${placeText(s.place)}: ${named(s.lineId)}`).join('\n')}`);
   if (!a.data || !a.record) return;
-  const record = await readJson(a.record);
+  // Orders first (FM-A08, F1): the list can only place spools already in the record.
+  const waiting = [];
+  for (const f of await readdir(join(a.data, 'proposals')).catch(() => [])) {
+    const q = f.endsWith('.json') ? await readJson(join(a.data, 'proposals', f)).catch(() => null) : null;
+    if (q?.status === 'Waiting' && q.source?.kind === 'Order') waiting.push(q.source.number || f);
+  }
+  if (waiting.length) { console.log(`Order ${waiting.join(', ')} ${waiting.length > 1 ? 'are' : 'is'} still waiting for review. Review in Filament Ctrl first, then read the printer, so its spools can be placed. Nothing written.`); return; }
+  const record = await readJson(a.record).catch(() => null);
+  if (!record?.spools?.length) { console.log('The record has no spools yet. Read your orders and review them in Filament Ctrl first, then read the printer. Nothing written.'); return; }
   await writeJson(join(a.data, 'snapshots', `${isoToday()}-studio.json`), { format: 1, from: 'From Bambu Studio', at, slots: slots.map((s) => ({ ...s.place, lineId: s.lineId, line: s.lineId ? named(s.lineId) : null })) });
   const p = proposalFromStudio(slots, catalog, record, at);
   await writeJson(join(a.data, 'proposals', `${p.id}.json`), p);
