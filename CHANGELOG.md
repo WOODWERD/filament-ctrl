@@ -2,6 +2,13 @@
 
 What changed in each version of Filament Ctrl, newest first. Versions are x-numbers while Filament Ctrl is a public beta.
 
+## x0.0.3 — 2026-11-06
+
+The first public beta, at [woodwerd.github.io/filament-ctrl](https://woodwerd.github.io/filament-ctrl/).
+
+- **Published.** The app and user guide are on the web, and the code and the filament skill are on GitHub.
+- **Setting up GitHub.** The guide now points to Set up GitHub in the WOODWERD Toolkit Guides, and says Filament Ctrl has a private repo of its own.
+
 ## x0.0.2 — 2026-11-06
 
 From the first real-use check on Drew's shelf.
