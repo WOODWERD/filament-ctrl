@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+# Working files, kept private
+CLAUDE.md
+spec.md
+.claude/
+# Built on the person's own computer, never committed (FM-R60, Q15)
+catalog.json
+standin/

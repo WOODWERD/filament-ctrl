@@ -1,0 +1,21 @@
+{
+  "name": "Filament Ctrl",
+  "short_name": "Filament Ctrl",
+  "description": "Filament on hand and what's in the printer, with Bambu Lab's materials. Your record stays in your own private repo.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#141311",
+  "theme_color": "#141311",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
