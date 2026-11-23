@@ -2,6 +2,12 @@
 
 What changed in each version of Filament Ctrl, newest first. Versions are x-numbers while Filament Ctrl is a public beta.
 
+## x0.0.4 — 2026-11-23
+
+- **Data repo.** Choose the Repo light at the top, or Data repo at the foot, to see your connection: the repo, that it's private, when it was last read and saved, and what this device can do. From there you can read again, paste a new token when the old one runs out, or disconnect. Works the same way as Tool Ctrl.
+- **Disconnect asks first,** and says the token goes from this device only, while your record stays on GitHub.
+- **Connecting** now has Make a token on GitHub and How to set it up buttons, and a link to Set up GitHub.
+
 ## x0.0.3 — 2026-11-06
 
 The first public beta, at [woodwerd.github.io/filament-ctrl](https://woodwerd.github.io/filament-ctrl/).

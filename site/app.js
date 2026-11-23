@@ -38,6 +38,7 @@ async function refresh() {
   S.problem = null; S.loaded = true;
   S.rec = r.record || emptyRecord();
   S.catalog = r.catalog; S.proposals = r.proposals; S.snapshot = r.snapshot;
+  S.repoInfo = { readAt: new Date(), last: r.last || null };
   if (!S.conn.standin) db.setMeta('cache', { rec: S.rec, catalog: S.catalog, proposals: S.proposals });
 }
 
@@ -103,8 +104,10 @@ function leds() { // FM-U02: Repo, Printer, Waiting
   if (S.rec) { const [t, c] = printerState(); out.push([c === 'ok' ? 'on-ok' : c === 'warn' ? 'on-busy' : '', t]); }
   const w = waiting().length;
   if (w) out.push(['on-busy', `${w} waiting`]);
-  $('#leds').innerHTML = out.map(([c, t]) => `<span class="led ${c}"><i></i><span>${esc(t)}</span></span>`).join('');
-  const dc = document.querySelector('[data-act="disconnect"]'); if (dc) dc.hidden = !S.conn || S.conn.standin;
+  $('#leds').innerHTML = out.map(([c, t], i) => (i === 0 && S.conn
+    ? `<button type="button" class="led lnk ${c}" data-act="repo" title="Data repo"><i></i><span>${esc(t)}</span></button>`
+    : `<span class="led ${c}"><i></i><span>${esc(t)}</span></span>`)).join('');
+  const dr = document.querySelector('.foot [data-act="repo"]'); if (dr) dr.hidden = !S.conn;
 }
 
 // ---------- render ----------
@@ -112,9 +115,10 @@ function render() {
   leds();
   let v;
   if (!S.conn) v = S.view === 'connect' ? connectView() : firstView();
+  else if (S.changing) v = connectView();
   else if (!S.rec) v = S.problem ? problemView() : tier(0, 'Loading', 'Reading your repo', 'Reading', 'idle', '<p class="small">One moment.</p>');
   else {
-    const views = { printer: printerView, shelf: shelfView, materials: materialsView, review: reviewView, ask: askView, add: addView };
+    const views = { printer: printerView, shelf: shelfView, materials: materialsView, review: reviewView, ask: askView, add: addView, repo: repoView };
     if (!wide.matches && (S.view === 'review' || S.view === 'add')) S.view = 'shelf'; // FM-U09
     v = (S.problem ? problemView() : '') + barView() + (views[S.view] || shelfView)();
   }
@@ -146,15 +150,38 @@ function firstView() {
     <div class="row"><button type="button" class="key go" data-act="connect">Connect a data repo</button><a class="guidelink" href="guide.html#start">How it works, and making the repo</a></div>`);
 }
 function connectView() {
-  const m = S.connectMsg;
-  return tier(1, 'Connect', 'Your Filament Ctrl data repo', m?.ok ? 'Private · ready' : 'Not connected', m?.ok ? 'ok' : 'idle', `
+  const m = S.connectMsg, keep = S.changing ? S.conn.repo : null;
+  return tier(1, keep ? 'Change token' : 'Connect', keep ? 'A new token for the same repo' : 'Your Filament Ctrl data repo', m?.ok ? 'Private · ready' : keep ? 'Connected' : 'Not connected', m?.ok || keep ? 'ok' : 'idle', `
+    ${keep ? '' : `<p class="small">Keep your record in a private repo of its own. Make the repo private on GitHub, then a fine-grained token for that one repo. New to GitHub? Follow <a href="https://woodwerd.github.io/github.html" target="_blank" rel="noopener noreferrer">Set up GitHub</a>, step by step.</p>`}
     <form class="fields" id="connectForm" autocomplete="off">
-      <label class="field"><span class="lbl">Data repo</span><input class="in mono" name="repo" placeholder="you/filament-data" value="${esc(m?.repo || '')}" required><span class="help">As owner/name. A private repo of its own.</span></label>
+      <label class="field"><span class="lbl">Data repo</span><input class="in mono" name="repo" placeholder="you/filament-data" value="${esc(keep || m?.repo || '')}" ${keep ? 'readonly' : ''} required><span class="help">As owner/name. A private repo of its own.</span></label>
       <label class="field"><span class="lbl">Token</span><input class="in" name="token" type="password" required><span class="help">A fine-grained token for this one repo, with Contents read and write.</span></label>
     </form>
     ${m && !m.ok ? `<div class="health bad"><b>${esc(m.title)}</b><span>${esc(m.text)}</span></div>` : ''}
-    <div class="row"><button type="submit" form="connectForm" class="key go" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Checking' : 'Connect'}</button><button type="button" class="key" data-act="cancel">Cancel</button></div>
-    <p class="small">The token stays on this device only. Disconnect deletes it.</p>`);
+    <div class="row"><button type="submit" form="connectForm" class="key go" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Checking' : keep ? 'Save token' : 'Connect'}</button>
+      <a class="key" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Make a token on GitHub ↗</a>
+      <a class="key" href="guide.html#github">How to set it up</a>
+      <button type="button" class="key" data-act="cancel">Cancel</button></div>
+    <div class="health"><b>The token stays here</b><span>It is kept on this device only. It never goes in a link, a file or the repo.</span></div>`);
+}
+// Data repo (FM-S14), as Tool Ctrl's GitHub area (TC-S08)
+function repoView() {
+  const i = S.repoInfo || {}, when = (d) => (d ? new Date(d).toLocaleString() : 'Not yet');
+  const row = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+  return tier(0, 'Data repo', 'Your own private repo', S.problem ? 'Problem' : S.loaded ? 'Connected' : 'Reading', S.problem ? 'warn' : S.loaded ? 'ok' : 'idle', `
+    <div class="kvs">
+      ${row('Repo', `<span class="mono">${esc(S.conn.repo)}</span>`)}
+      ${row('Visibility', S.problem?.kind === 'public' ? 'Public' : S.loaded ? 'Private' : 'Checking')}
+      ${row('Last read', `<span class="mono">${esc(when(i.readAt))}</span>`)}
+      ${row('Last saved', `<span class="mono">${esc(i.last ? `${i.last.message} · ${when(i.last.date)}` : '—')}</span>`)}
+      ${row('This device', wide.matches ? 'Computer or iPad' : 'Phone · reviews only')}
+    </div>
+    ${S.problem?.kind === 'public' ? '<div class="health bad"><b>This repo is public</b><span>Anyone can see your record. Make it private on GitHub. Filament Ctrl saves nothing until it is.</span></div>' : ''}
+    <div class="row"><button type="button" class="key" data-act="recheck" ${S.saving ? 'disabled' : ''}>Read again</button>
+      ${S.conn.standin ? '' : '<button type="button" class="key" data-act="changetoken">Change token</button>'}
+      <span class="sp"></span>
+      <button type="button" class="key stop" data-act="disconnect">Disconnect</button></div>
+    <p class="small">Every change is one commit in the repo, so its history on GitHub is the record's history.</p>`);
 }
 function problemView() {
   const p = S.problem;
@@ -443,17 +470,20 @@ const today = () => isoToday();
 const name = (s) => { const f = getFilament(S.rec, s.filament); return `${s.id} ${colourName(f)} ${f?.line || ''}`.trim(); };
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act]');
-  if (!b || !$('#app').contains(b) && b.dataset.act !== 'disconnect') return;
+  if (!b || !$('#app').contains(b) && !['disconnect', 'repo'].includes(b.dataset.act)) return;
   const act = b.dataset.act, v = b.dataset.v;
   // One change at a time: while a save is on its way to GitHub, a second click would apply it again (FM-A08).
-  if (S.saving && !['cancel', 'later'].includes(act)) return;
+  if (S.saving && !['cancel', 'later', 'repo'].includes(act)) return;
   S.focus = null;
   switch (act) {
     case 'connect': S.view = 'connect'; break;
-    case 'cancel': S.view = 'first'; S.connectMsg = null; break;
+    case 'cancel': if (S.changing) S.changing = false; else S.view = 'first'; S.connectMsg = null; break;
+    case 'repo': S.view = 'repo'; S.sheet = null; break;
+    case 'changetoken': S.changing = true; S.connectMsg = null; break;
     case 'recheck': S.problem = null; await refresh(); break;
     case 'reconnect': S.conn = null; db.delMeta('conn'); S.view = 'connect'; break;
-    case 'disconnect': S.conn = null; S.gh = null; S.rec = null; db.delMeta('conn'); db.delMeta('cache'); S.view = 'first'; break;
+    case 'disconnect': if (!confirm('Disconnect from GitHub on this device? The token is deleted from this device. Your record stays on GitHub.')) return;
+      S.changing = false; S.repoInfo = null; S.conn = null; S.gh = null; S.rec = null; db.delMeta('conn'); db.delMeta('cache'); S.view = 'first'; break;
     case 'view': S.view = v; S.sheet = null; break;
     case 'filter': S.filter = v; break;
     case 'openf': S.open = v; break;
@@ -527,7 +557,8 @@ document.addEventListener('submit', async (e) => {
     if (c.error) { S.connectMsg = { repo, title: 'Not connected', text: c.error.text }; render(); return; }
     if (!c.private) { S.connectMsg = { repo, title: 'This repo is public', text: 'Make it private on GitHub, then connect again. Filament Ctrl never writes to a public repo.' }; render(); return; }
     if (!c.canWrite) { S.connectMsg = { repo, title: 'Can\'t write', text: 'Give the token Contents read and write for this repo.' }; render(); return; }
-    S.conn = { repo, token }; db.setMeta('conn', S.conn); S.gh = gh; S.connectMsg = null; S.view = 'shelf';
+    const was = S.changing; S.changing = false;
+    S.conn = { repo, token }; db.setMeta('conn', S.conn); S.gh = gh; S.connectMsg = null; S.view = was ? 'repo' : 'shelf';
     await gh.ensureReadme(); await refresh(); render();
   } else if (e.target.id === 'printerForm') {
     const yn = (k) => (f.get(k) === 'yes' ? true : f.get(k) === 'no' ? false : null);

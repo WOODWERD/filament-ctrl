@@ -6,7 +6,7 @@ Your own Claude, with the WOODWERD filament skill in [`skill/`](skill/), reads y
 
 **Open it:** [woodwerd.github.io/filament-ctrl](https://woodwerd.github.io/filament-ctrl/). **How to use it:** the [user guide](https://woodwerd.github.io/filament-ctrl/guide.html).
 
-Status: x0.0.3, public beta. What changed in each version is in the [CHANGELOG](CHANGELOG.md).
+Status: x0.0.4, public beta. What changed in each version is in the [CHANGELOG](CHANGELOG.md).
 
 Part of the [WOODWERD Toolkit](https://github.com/WOODWERD). MIT licence.
 

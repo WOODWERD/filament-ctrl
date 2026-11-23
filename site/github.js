@@ -47,7 +47,7 @@ export function client(repo, token, fetchFn = (...a) => fetch(...a)) {
     if (ref.status !== 200) return { error: explain(ref.status, repo, 'read') };
     const c = await call(`/git/commits/${ref.json.object.sha}`);
     if (c.status !== 200) return { error: explain(c.status, repo, 'read') };
-    return { branch, commit: ref.json.object.sha, tree: c.json.tree.sha };
+    return { branch, commit: ref.json.object.sha, tree: c.json.tree.sha, last: { message: (c.json.message || '').split('\n')[0], date: c.json.committer?.date || null } };
   }
 
   // One commit holding every file change: { path, bytes }. FM-A10: one change, one commit.
@@ -119,6 +119,7 @@ export function client(repo, token, fetchFn = (...a) => fetch(...a)) {
       const props = [...paths].filter((p) => /^proposals\/[^/]+\.json$/.test(p));
       const snaps = [...paths].filter((p) => /^snapshots\/[^/]+\.json$/.test(p)).sort();
       return {
+        last: h.last,
         record: await get('filament-ctrl.json'),
         catalog: await get('catalog.json'),
         proposals: (await Promise.all(props.map(async (p) => ({ path: p, ...(await get(p)) })))).filter((p) => p.format),

@@ -238,3 +238,13 @@ ul.plain{margin:5px 0 0;padding-left:18px;display:flex;flex-direction:column;gap
 @media (max-width:767px){.ld{grid-template-columns:minmax(0,1fr)}.dcol{position:static}.prow{grid-template-columns:21px 21px minmax(0,1fr) 72px}.prow>span:nth-of-type(3){display:none}}
 .steps{margin:0;padding-left:21px;display:flex;flex-direction:column;gap:5px;font-size:var(--t-cap)}
 .guide p{margin:0;max-width:68ch}
+
+/* Data repo (FM-S14), read rows as Tool Ctrl's */
+.kvs{border-top:1px solid var(--line)}
+.kv{display:grid;grid-template-columns:minmax(0,140px) minmax(0,1fr);gap:13px;padding:8px 0;border-bottom:1px solid var(--line);font-size:var(--t-cap)}
+.kv>span:first-child{color:var(--soft)}
+.kv>span:last-child{overflow-wrap:anywhere}
+button.led{background:none;border:0;padding:0;cursor:pointer;font:inherit}
+button.led:hover span{text-decoration:underline}
+.row .sp{flex:1}
+@media (max-width:767px){.kv{grid-template-columns:1fr;gap:2px}}
